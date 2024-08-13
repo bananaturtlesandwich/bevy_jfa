@@ -1,17 +1,17 @@
 use bevy::{
     prelude::*,
     render::{
-        render_asset::RenderAssets,
+        render_asset::{RenderAsset, RenderAssets},
         render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
         render_resource::{
-            BindGroup, BindGroupLayout, BlendComponent, BlendFactor, BlendOperation, BlendState,
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, LoadOp,
-            MultisampleState, Operations, PipelineCache, RenderPassColorAttachment,
-            RenderPassDescriptor, RenderPipelineDescriptor, ShaderType, SpecializedRenderPipeline,
-            SpecializedRenderPipelines, TextureFormat, TextureSampleType, TextureUsages,
-            UniformBuffer, VertexState,
+            BindGroup, BindGroupEntry, BindGroupLayout, BlendComponent, BlendFactor,
+            BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
+            FragmentState, LoadOp, MultisampleState, Operations, PipelineCache,
+            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, ShaderType,
+            SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+            TextureSampleType, TextureUsages, UniformBuffer, VertexState,
         },
-        renderer::RenderContext,
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         view::ViewTarget,
     },
 };
@@ -21,7 +21,7 @@ use crate::{
     CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE, OUTLINE_SHADER,
 };
 
-#[derive(Clone, Debug, Default, PartialEq, ShaderType)]
+#[derive(Clone, Debug, Default, PartialEq, TypePath, Asset, ShaderType)]
 pub struct OutlineParams {
     // Outline color.
     pub(crate) color: Vec4,
@@ -41,6 +41,39 @@ pub struct GpuOutlineParams {
     pub(crate) params: OutlineParams,
     pub(crate) _buffer: UniformBuffer<OutlineParams>,
     pub(crate) bind_group: BindGroup,
+}
+
+impl RenderAsset for GpuOutlineParams {
+    type SourceAsset = OutlineStyle;
+    type Param = (
+        Res<'static, RenderDevice>,
+        Res<'static, RenderQueue>,
+        Res<'static, OutlineResources>,
+    );
+
+    fn prepare_asset(
+        source_asset: Self::SourceAsset,
+        (device, queue, outline_res): &mut bevy::ecs::system::SystemParamItem<Self::Param>,
+    ) -> Result<Self, bevy::render::render_asset::PrepareAssetError<Self::SourceAsset>> {
+        let params = OutlineParams::new(source_asset.color, source_asset.width);
+        let mut buffer = UniformBuffer::from(params.clone());
+        buffer.write_buffer(device, queue);
+
+        let bind_group = device.create_bind_group(
+            None,
+            &outline_res.outline_params_bind_group_layout,
+            &[BindGroupEntry {
+                binding: 0,
+                resource: buffer.buffer().unwrap().as_entire_binding(),
+            }],
+        );
+
+        Ok(Self {
+            params,
+            _buffer: buffer,
+            bind_group,
+        })
+    }
 }
 
 #[derive(Clone, Debug, Resource)]

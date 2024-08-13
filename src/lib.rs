@@ -21,12 +21,14 @@
 
 use bevy::{
     app::prelude::*,
-    asset::{embedded_asset, Assets, Handle, HandleUntyped},
+    asset::{embedded_asset, Asset, AssetApp, Assets, Handle},
+    color::Color,
     core_pipeline::core_3d,
     ecs::{prelude::*, system::SystemParamItem},
+    math::FloatOrd,
     pbr::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
-    prelude::{AddAsset, Camera3d},
-    reflect::TypeUuid,
+    prelude::Camera3d,
+    reflect::TypePath,
     render::{
         extract_resource::ExtractResource,
         prelude::*,
@@ -34,14 +36,13 @@ use bevy::{
         render_graph::RenderGraph,
         render_phase::{
             AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-            PhaseItem, RenderPhase, SetItemPipeline,
+            PhaseItem, SetItemPipeline,
         },
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, VisibleEntities},
         Extract, RenderApp, RenderSet,
     },
-    utils::FloatOrd,
 };
 
 use crate::{
@@ -110,8 +111,8 @@ use crate::graph::outline as outline_graph;
 
 impl Plugin for OutlinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RenderAssetPlugin::<OutlineStyle>::default())
-            .add_asset::<OutlineStyle>()
+        app.add_plugins(RenderAssetPlugin::<GpuOutlineParams>::default())
+            .init_asset::<OutlineStyle>()
             .init_resource::<OutlineSettings>();
 
         let mut shaders = app
@@ -210,48 +211,10 @@ type DrawMeshMask = (
 );
 
 /// Visual style for an outline.
-#[derive(Clone, Debug, PartialEq, TypeUuid)]
-#[uuid = "256fd556-e497-4df2-8d9c-9bdb1419ee90"]
+#[derive(Clone, Debug, PartialEq, TypePath, Asset)]
 pub struct OutlineStyle {
     pub color: Color,
     pub width: f32,
-}
-
-impl RenderAsset for OutlineStyle {
-    type ExtractedAsset = OutlineParams;
-    type PreparedAsset = GpuOutlineParams;
-    type Param = (
-        Res<'static, RenderDevice>,
-        Res<'static, RenderQueue>,
-        Res<'static, OutlineResources>,
-    );
-
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        OutlineParams::new(self.color, self.width)
-    }
-
-    fn prepare_asset(
-        extracted_asset: Self::ExtractedAsset,
-        (device, queue, outline_res): &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let mut buffer = UniformBuffer::from(extracted_asset.clone());
-        buffer.write_buffer(device, queue);
-
-        let bind_group = device.create_bind_group(&BindGroupDescriptor {
-            label: None,
-            layout: &outline_res.outline_params_bind_group_layout,
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: buffer.buffer().unwrap().as_entire_binding(),
-            }],
-        });
-
-        Ok(GpuOutlineParams {
-            params: extracted_asset,
-            _buffer: buffer,
-            bind_group,
-        })
-    }
 }
 
 /// Component for enabling outlines when rendering with a given camera.
