@@ -12,7 +12,7 @@ use bevy::{
     },
 };
 
-use crate::{resources::OutlineResources, JFA_INIT_SHADER, JFA_TEXTURE_FORMAT};
+use crate::{resources::OutlineResources, JFA_TEXTURE_FORMAT};
 
 #[derive(Resource)]
 pub struct JfaInitPipeline {
@@ -24,7 +24,9 @@ impl FromWorld for JfaInitPipeline {
         let res = world.resource::<OutlineResources>();
         let dims_layout = res.dimensions_bind_group_layout.clone();
         let init_layout = res.jfa_init_bind_group_layout.clone();
-        let shader = world.resource::<AssetServer>().load(JFA_INIT_SHADER);
+        let shader = world
+            .resource::<AssetServer>()
+            .load("embedded://bevy_jfa/shaders/jfa_init.wgsl");
 
         let pipeline_cache = world.get_resource_mut::<PipelineCache>().unwrap();
         let cached = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {

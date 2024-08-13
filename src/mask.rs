@@ -1,5 +1,4 @@
 use bevy::{
-    asset::embedded_path,
     pbr::{MeshPipeline, MeshPipelineKey},
     prelude::*,
     render::{
@@ -15,7 +14,7 @@ use bevy::{
     },
 };
 
-use crate::{resources::OutlineResources, MeshMask, MASK_SHADER};
+use crate::{resources::OutlineResources, MeshMask};
 
 #[derive(Resource)]
 pub struct MeshMaskPipeline {
@@ -30,7 +29,7 @@ impl FromWorld for MeshMaskPipeline {
             shader: world
                 .get_resource::<AssetServer>()
                 .unwrap()
-                .load(embedded_path!(MASK_SHADER)),
+                .load("embedded://bevy_jfa/shaders/mask.wgsl"),
         }
     }
 }

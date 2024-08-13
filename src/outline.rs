@@ -19,7 +19,7 @@ use bevy::{
 
 use crate::{
     resources::{self, OutlineResources},
-    CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE, OUTLINE_SHADER,
+    CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, TypePath, Asset, ShaderType)]
@@ -87,7 +87,9 @@ pub struct OutlinePipeline {
 
 impl FromWorld for OutlinePipeline {
     fn from_world(world: &mut World) -> Self {
-        let shader = world.resource::<AssetServer>().load(OUTLINE_SHADER);
+        let shader = world
+            .resource::<AssetServer>()
+            .load("embedded://bevy_jfa/shaders/outline.wgsl");
         let res = world.get_resource::<resources::OutlineResources>().unwrap();
         let dimensions_layout = res.dimensions_bind_group_layout.clone();
         let input_layout = res.outline_src_bind_group_layout.clone();
