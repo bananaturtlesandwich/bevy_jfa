@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             ColorTargetState, ColorWrites, FragmentState, LoadOp, MultisampleState, Operations,
             RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
-            SpecializedMeshPipeline, SpecializedMeshPipelineError, TextureFormat,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, StoreOp, TextureFormat,
         },
         renderer::RenderContext,
     },
@@ -44,15 +44,17 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut desc = self.mesh_pipeline.specialize(key, layout)?;
 
-        desc.layout = vec![
-            self.mesh_pipeline.view_layout_multisampled.clone(),
-            self.mesh_pipeline.mesh_layout.clone(),
-        ];
+        desc.layout = self
+            .mesh_pipeline
+            .view_layouts
+            .iter()
+            .map(|view| view.bind_group_layout.clone())
+            .collect();
 
-        desc.vertex.shader = self.shader;
+        desc.vertex.shader = self.shader.clone_weak();
 
         desc.fragment = Some(FragmentState {
-            shader: self.shader,
+            shader: self.shader.clone_weak(),
             shader_defs: vec![],
             entry_point: "fragment".into(),
             targets: vec![Some(ColorTargetState {
@@ -132,11 +134,13 @@ impl Node for MeshMaskNode {
                 view: &res.mask_multisample.default_view,
                 resolve_target: Some(&res.mask_output.default_view),
                 ops: Operations {
-                    load: LoadOp::Clear(Color::BLACK.into()),
-                    store: true,
+                    load: LoadOp::Clear(LinearRgba::BLACK.into()),
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         stencil_phase.render(&mut tracked_pass, world, view_entity);
