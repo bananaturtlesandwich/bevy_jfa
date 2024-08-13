@@ -14,7 +14,7 @@ use bevy::{
 
 use crate::{
     resources::OutlineResources, CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE,
-    JFA_SHADER_HANDLE, JFA_TEXTURE_FORMAT,
+    JFA_SHADER, JFA_TEXTURE_FORMAT,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ShaderType)]
@@ -51,18 +51,19 @@ impl FromWorld for JfaPipeline {
         let res = world.get_resource::<OutlineResources>().unwrap();
         let dimensions_bind_group_layout = res.dimensions_bind_group_layout.clone();
         let jfa_bind_group_layout = res.jfa_bind_group_layout.clone();
+        let shader = world.resource::<AssetServer>().load(JFA_SHADER);
         let pipeline_cache = world.get_resource_mut::<PipelineCache>().unwrap();
         let cached = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("outline_jfa_pipeline".into()),
             layout: vec![dimensions_bind_group_layout, jfa_bind_group_layout],
             vertex: VertexState {
-                shader: JFA_SHADER_HANDLE.typed::<Shader>(),
+                shader: shader.clone_weak(),
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
-                shader: JFA_SHADER_HANDLE.typed::<Shader>(),
+                shader,
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

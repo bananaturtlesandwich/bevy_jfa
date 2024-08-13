@@ -21,7 +21,7 @@
 
 use bevy::{
     app::prelude::*,
-    asset::{Assets, Handle, HandleUntyped},
+    asset::{embedded_asset, Assets, Handle, HandleUntyped},
     core_pipeline::core_3d,
     ecs::{prelude::*, system::SystemParamItem},
     pbr::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
@@ -99,18 +99,12 @@ impl Default for OutlineSettings {
     }
 }
 
-const MASK_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 10400755559809425757);
-const JFA_INIT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11038189062916158841);
-const JFA_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 5227804998548228051);
-const FULLSCREEN_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12099561278220359682);
-const OUTLINE_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11094028876979933159);
-const DIMENSIONS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11721531257850828867);
+const MASK_SHADER: &str = "shaders/mask.wgsl";
+const JFA_INIT_SHADER: &str = "shaders/jfa_init.wgsl";
+const JFA_SHADER: &str = "shaders/jfa.wgsl";
+const FULLSCREEN_SHADER: &str = "shaders/fullscreen.wgsl";
+const OUTLINE_SHADER: &str = "shaders/outline.wgsl";
+const DIMENSIONS_SHADER: &str = "shaders/dimensions.wgsl";
 
 use crate::graph::outline as outline_graph;
 
@@ -122,21 +116,12 @@ impl Plugin for OutlinePlugin {
 
         let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
 
-        let mask_shader = Shader::from_wgsl(include_str!("shaders/mask.wgsl"));
-        let jfa_init_shader = Shader::from_wgsl(include_str!("shaders/jfa_init.wgsl"));
-        let jfa_shader = Shader::from_wgsl(include_str!("shaders/jfa.wgsl"));
-        let fullscreen_shader = Shader::from_wgsl(include_str!("shaders/fullscreen.wgsl"))
-            .with_import_path("outline::fullscreen");
-        let outline_shader = Shader::from_wgsl(include_str!("shaders/outline.wgsl"));
-        let dimensions_shader = Shader::from_wgsl(include_str!("shaders/dimensions.wgsl"))
-            .with_import_path("outline::dimensions");
-
-        shaders.set_untracked(MASK_SHADER_HANDLE, mask_shader);
-        shaders.set_untracked(JFA_INIT_SHADER_HANDLE, jfa_init_shader);
-        shaders.set_untracked(JFA_SHADER_HANDLE, jfa_shader);
-        shaders.set_untracked(FULLSCREEN_SHADER_HANDLE, fullscreen_shader);
-        shaders.set_untracked(OUTLINE_SHADER_HANDLE, outline_shader);
-        shaders.set_untracked(DIMENSIONS_SHADER_HANDLE, dimensions_shader);
+        embedded_asset!(app, "shaders/mask.wgsl");
+        embedded_asset!(app, "shaders/jfa_init.wgsl");
+        embedded_asset!(app, "shaders/jfa.wgsl");
+        embedded_asset!(app, "shaders/fullscreen.wgsl");
+        embedded_asset!(app, "shaders/outline.wgsl");
+        embedded_asset!(app, "shaders/dimensions.wgsl");
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(r) => r,

@@ -18,7 +18,7 @@ use bevy::{
 
 use crate::{
     resources::{self, OutlineResources},
-    CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE, OUTLINE_SHADER_HANDLE,
+    CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE, OUTLINE_SHADER,
 };
 
 #[derive(Clone, Debug, Default, PartialEq, ShaderType)]
@@ -48,10 +48,12 @@ pub struct OutlinePipeline {
     dimensions_layout: BindGroupLayout,
     input_layout: BindGroupLayout,
     params_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for OutlinePipeline {
     fn from_world(world: &mut World) -> Self {
+        let shader = world.resource::<AssetServer>().load(OUTLINE_SHADER);
         let res = world.get_resource::<resources::OutlineResources>().unwrap();
         let dimensions_layout = res.dimensions_bind_group_layout.clone();
         let input_layout = res.outline_src_bind_group_layout.clone();
@@ -61,6 +63,7 @@ impl FromWorld for OutlinePipeline {
             dimensions_layout,
             input_layout,
             params_layout,
+            shader,
         }
     }
 }
@@ -116,13 +119,13 @@ impl SpecializedRenderPipeline for OutlinePipeline {
                 self.params_layout.clone(),
             ],
             vertex: VertexState {
-                shader: OUTLINE_SHADER_HANDLE.typed::<Shader>(),
+                shader: self.shader.clone_weak(),
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![],
             },
             fragment: Some(FragmentState {
-                shader: OUTLINE_SHADER_HANDLE.typed::<Shader>(),
+                shader: self.shader.clone_weak(),
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

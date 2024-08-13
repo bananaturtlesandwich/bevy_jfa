@@ -12,7 +12,7 @@ use bevy::{
     },
 };
 
-use crate::{resources::OutlineResources, JFA_INIT_SHADER_HANDLE, JFA_TEXTURE_FORMAT};
+use crate::{resources::OutlineResources, JFA_INIT_SHADER, JFA_TEXTURE_FORMAT};
 
 #[derive(Resource)]
 pub struct JfaInitPipeline {
@@ -24,13 +24,14 @@ impl FromWorld for JfaInitPipeline {
         let res = world.resource::<OutlineResources>();
         let dims_layout = res.dimensions_bind_group_layout.clone();
         let init_layout = res.jfa_init_bind_group_layout.clone();
+        let shader = world.resource::<AssetServer>().load(JFA_INIT_SHADER);
 
         let pipeline_cache = world.get_resource_mut::<PipelineCache>().unwrap();
         let cached = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
             label: Some("outline_jfa_init_pipeline".into()),
             layout: vec![dims_layout, init_layout],
             vertex: VertexState {
-                shader: JFA_INIT_SHADER_HANDLE.typed::<Shader>(),
+                shader: shader.clone_weak(),
                 shader_defs: vec![],
                 entry_point: "vertex".into(),
                 buffers: vec![],
@@ -47,7 +48,7 @@ impl FromWorld for JfaInitPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             fragment: Some(FragmentState {
-                shader: JFA_INIT_SHADER_HANDLE.typed::<Shader>(),
+                shader: shader.clone_weak(),
                 shader_defs: vec![],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

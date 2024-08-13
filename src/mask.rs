@@ -1,4 +1,5 @@
 use bevy::{
+    asset::embedded_path,
     pbr::{MeshPipeline, MeshPipelineKey},
     prelude::*,
     render::{
@@ -14,18 +15,23 @@ use bevy::{
     },
 };
 
-use crate::{resources::OutlineResources, MeshMask, MASK_SHADER_HANDLE};
+use crate::{resources::OutlineResources, MeshMask, MASK_SHADER};
 
 #[derive(Resource)]
 pub struct MeshMaskPipeline {
     mesh_pipeline: MeshPipeline,
+    shader: Handle<Shader>,
 }
 
 impl FromWorld for MeshMaskPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mesh_pipeline = world.get_resource::<MeshPipeline>().unwrap().clone();
-
-        MeshMaskPipeline { mesh_pipeline }
+        MeshMaskPipeline {
+            mesh_pipeline: world.get_resource::<MeshPipeline>().unwrap().clone(),
+            shader: world
+                .get_resource::<AssetServer>()
+                .unwrap()
+                .load(embedded_path!(MASK_SHADER)),
+        }
     }
 }
 
@@ -44,10 +50,10 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
             self.mesh_pipeline.mesh_layout.clone(),
         ];
 
-        desc.vertex.shader = MASK_SHADER_HANDLE.typed::<Shader>();
+        desc.vertex.shader = self.shader;
 
         desc.fragment = Some(FragmentState {
-            shader: MASK_SHADER_HANDLE.typed::<Shader>(),
+            shader: self.shader,
             shader_defs: vec![],
             entry_point: "fragment".into(),
             targets: vec![Some(ColorTargetState {
