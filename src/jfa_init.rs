@@ -6,7 +6,7 @@ use bevy::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             LoadOp, MultisampleState, Operations, PipelineCache, PolygonMode, PrimitiveState,
             PrimitiveTopology, RenderPassColorAttachment, RenderPassDescriptor,
-            RenderPipelineDescriptor, VertexState,
+            RenderPipelineDescriptor, StoreOp, VertexState,
         },
         renderer::RenderContext,
     },
@@ -124,7 +124,7 @@ impl Node for JfaInitNode {
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(
-                        Color::RgbaLinear {
+                        LinearRgba {
                             red: -1.0,
                             green: -1.0,
                             blue: 0.0,
@@ -132,10 +132,12 @@ impl Node for JfaInitNode {
                         }
                         .into(),
                     ),
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
         tracked_pass.set_render_pipeline(cached_pipeline);
         tracked_pass.set_bind_group(0, &res.dimensions_bind_group, &[]);

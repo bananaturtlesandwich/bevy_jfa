@@ -5,6 +5,7 @@ use bevy::{
     render::{
         mesh::MeshVertexBufferLayoutRef,
         render_graph::{Node, RenderGraphContext, SlotInfo, SlotType},
+        render_phase::ViewBinnedRenderPhases,
         render_resource::{
             ColorTargetState, ColorWrites, FragmentState, LoadOp, MultisampleState, Operations,
             RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
@@ -77,9 +78,7 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
 }
 
 /// Render graph node for producing stencils from meshes.
-pub struct MeshMaskNode {
-    query: QueryState<&'static RenderPhase<MeshMask>>,
-}
+pub struct MeshMaskNode;
 
 impl MeshMaskNode {
     pub const IN_VIEW: &'static str = "view";
@@ -90,12 +89,6 @@ impl MeshMaskNode {
     /// by a mesh are assigned a value of 255. All other fragments are assigned
     /// a value of 0. The depth aspect is unused.
     pub const OUT_MASK: &'static str = "stencil";
-
-    pub fn new(world: &mut World) -> MeshMaskNode {
-        MeshMaskNode {
-            query: QueryState::new(world),
-        }
-    }
 }
 
 impl Node for MeshMaskNode {
@@ -107,10 +100,6 @@ impl Node for MeshMaskNode {
         vec![SlotInfo::new(Self::OUT_MASK, SlotType::TextureView)]
     }
 
-    fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
-    }
-
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -118,15 +107,21 @@ impl Node for MeshMaskNode {
         world: &World,
     ) -> Result<(), bevy::render::render_graph::NodeRunError> {
         let res = world.get_resource::<OutlineResources>().unwrap();
+        let input_view_entity = graph.view_entity();
+
+        let Some(mesh_mask_render_phases) =
+            world.get_resource::<ViewBinnedRenderPhases<MeshMask>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(stencil_phase) = mesh_mask_render_phases.get(&input_view_entity) else {
+            return Ok(());
+        };
 
         graph
             .set_output(Self::OUT_MASK, res.mask_multisample.default_view.clone())
             .unwrap();
-
-        let view_entity = graph.get_input_entity(Self::IN_VIEW).unwrap();
-        let Ok(stencil_phase) = self.query.get_manual(world, view_entity) else {
-            return Ok(());
-        };
 
         let mut tracked_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("outline_stencil_render_pass"),
@@ -143,7 +138,7 @@ impl Node for MeshMaskNode {
             occlusion_query_set: None,
         });
 
-        stencil_phase.render(&mut tracked_pass, world, view_entity);
+        stencil_phase.render(&mut tracked_pass, world, input_view_entity);
 
         Ok(())
     }

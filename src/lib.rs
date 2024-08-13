@@ -23,13 +23,13 @@ use std::ops::Range;
 
 use bevy::{
     app::prelude::*,
-    asset::{embedded_asset, Asset, AssetApp, Assets, Handle},
+    asset::{embedded_asset, Asset, AssetApp, Handle},
     color::Color,
     core_pipeline::core_3d,
     ecs::prelude::*,
     math::FloatOrd,
-    pbr::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
-    prelude::{Camera3d, Transform},
+    pbr::{DrawMesh, MeshPipeline, MeshPipelineKey, SetMeshBindGroup, SetMeshViewBindGroup},
+    prelude::Transform,
     reflect::TypePath,
     render::{
         extract_resource::ExtractResource,
@@ -38,7 +38,7 @@ use bevy::{
         render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::RenderGraph,
         render_phase::{
-            AddRenderCommand, BinnedPhaseItem, BinnedRenderPhaseType,
+            AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
             CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
             PhaseItemExtraIndex, SetItemPipeline, ViewBinnedRenderPhases,
         },
@@ -47,9 +47,12 @@ use bevy::{
         Extract, RenderApp, RenderSet,
     },
 };
-use graph::OutlineDriverNodeLabel;
 
-use crate::{graph::OutlineDriverNode, mask::MeshMaskPipeline, outline::GpuOutlineParams};
+use crate::{
+    graph::{OutlineDriverNode, OutlineDriverNodeLabel},
+    mask::MeshMaskPipeline,
+    outline::GpuOutlineParams,
+};
 
 mod graph;
 mod jfa;
@@ -110,14 +113,12 @@ use crate::graph::outline as outline_graph;
 
 impl Plugin for OutlinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(RenderAssetPlugin::<GpuOutlineParams>::default())
-            .init_asset::<OutlineStyle>()
-            .init_resource::<OutlineSettings>();
-
-        let mut shaders = app
-            .world_mut()
-            .get_resource_mut::<Assets<Shader>>()
-            .unwrap();
+        app.add_plugins((
+            RenderAssetPlugin::<GpuOutlineParams>::default(),
+            BinnedRenderPhasePlugin::<MeshMask, MeshPipeline>::default(),
+        ))
+        .init_asset::<OutlineStyle>()
+        .init_resource::<OutlineSettings>();
 
         embedded_asset!(app, "shaders/mask.wgsl");
         embedded_asset!(app, "shaders/jfa_init.wgsl");
@@ -147,7 +148,7 @@ impl Plugin for OutlinePlugin {
                 (
                     extract_outline_settings,
                     extract_camera_outlines,
-                    extract_mask_camera_phase,
+                    // extract_mask_camera_phase,
                 ),
             )
             .add_systems(
@@ -296,16 +297,16 @@ fn extract_camera_outlines(
     commands.insert_or_spawn_batch(batches);
 }
 
-fn extract_mask_camera_phase(
-    mut commands: Commands,
-    cameras: Extract<Query<Entity, (With<Camera3d>, With<CameraOutline>)>>,
-) {
-    for entity in cameras.iter() {
-        commands
-            .get_or_spawn(entity)
-            .insert(RenderPhase::<MeshMask>::default());
-    }
-}
+// fn extract_mask_camera_phase(
+//     mut commands: Commands,
+//     cameras: Extract<Query<Entity, (With<Camera3d>, With<CameraOutline>)>>,
+// ) {
+//     for entity in cameras.iter() {
+//         commands
+//             .get_or_spawn(entity)
+//             .insert(RenderPhase::<MeshMask>::default());
+//     }
+// }
 
 fn queue_mesh_masks(
     mesh_mask_draw_functions: Res<DrawFunctions<MeshMask>>,

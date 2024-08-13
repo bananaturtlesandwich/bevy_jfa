@@ -6,15 +6,16 @@ use bevy::{
         render_resource::{
             BindGroup, CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState,
             LoadOp, MultisampleState, Operations, PipelineCache, RenderPassColorAttachment,
-            RenderPassDescriptor, RenderPipelineDescriptor, ShaderType, TextureView, VertexState,
+            RenderPassDescriptor, RenderPipelineDescriptor, ShaderType, StoreOp, TextureView,
+            VertexState,
         },
         renderer::RenderContext,
     },
 };
 
 use crate::{
-    resources::OutlineResources, CameraOutline, OutlineStyle, FULLSCREEN_PRIMITIVE_STATE,
-    JFA_SHADER, JFA_TEXTURE_FORMAT,
+    outline::GpuOutlineParams, resources::OutlineResources, CameraOutline,
+    FULLSCREEN_PRIMITIVE_STATE, JFA_SHADER, JFA_TEXTURE_FORMAT,
 };
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, ShaderType)]
@@ -127,7 +128,7 @@ impl Node for JfaNode {
             .set_output(Self::OUT_JUMP, res.jfa_final_output.default_view.clone())
             .unwrap();
 
-        let styles = world.resource::<RenderAssets<OutlineStyle>>();
+        let styles = world.resource::<RenderAssets<GpuOutlineParams>>();
         let width = match self
             .query
             .get_manual(world, graph.get_input_entity(Self::IN_VIEW)?)
@@ -188,7 +189,7 @@ impl Node for JfaNode {
                 ops: Operations {
                     // TODO: ideally, this would be the equivalent of DONT_CARE, but wgpu doesn't expose that.
                     load: LoadOp::Clear(
-                        Color::RgbaLinear {
+                        LinearRgba {
                             red: -1.0,
                             green: -1.0,
                             blue: 0.0,
@@ -196,13 +197,15 @@ impl Node for JfaNode {
                         }
                         .into(),
                     ),
-                    store: true,
+                    store: StoreOp::Store,
                 },
             };
             let mut tracked_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("outline_jfa"),
                 color_attachments: &[Some(attachment)],
                 depth_stencil_attachment: None,
+                timestamp_writes: None,
+                occlusion_query_set: None,
             });
             tracked_pass.set_render_pipeline(cached_pipeline);
             tracked_pass.set_bind_group(0, &res.dimensions_bind_group, &[]);
