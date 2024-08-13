@@ -2,12 +2,11 @@ use bevy::{
     prelude::*,
     render::{
         render_resource::{
-            AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            BufferBindingType, DynamicUniformBuffer, Extent3d, FilterMode, Sampler,
-            SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, TextureDescriptor,
-            TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
-            TextureViewDimension, UniformBuffer,
+            AddressMode, BindGroup, BindGroupEntry, BindGroupLayout, BindGroupLayoutEntry,
+            BindingResource, BindingType, BufferBindingType, DynamicUniformBuffer, Extent3d,
+            FilterMode, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+            TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+            TextureView, TextureViewDimension, UniformBuffer,
         },
         renderer::{RenderDevice, RenderQueue},
         texture::{CachedTexture, TextureCache},

@@ -110,11 +110,14 @@ use crate::graph::outline as outline_graph;
 
 impl Plugin for OutlinePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(RenderAssetPlugin::<OutlineStyle>::default())
+        app.add_plugins(RenderAssetPlugin::<OutlineStyle>::default())
             .add_asset::<OutlineStyle>()
             .init_resource::<OutlineSettings>();
 
-        let mut shaders = app.world.get_resource_mut::<Assets<Shader>>().unwrap();
+        let mut shaders = app
+            .world_mut()
+            .get_resource_mut::<Assets<Shader>>()
+            .unwrap();
 
         embedded_asset!(app, "shaders/mask.wgsl");
         embedded_asset!(app, "shaders/jfa_init.wgsl");
@@ -124,8 +127,8 @@ impl Plugin for OutlinePlugin {
         embedded_asset!(app, "shaders/dimensions.wgsl");
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(r) => r,
-            Err(_) => return,
+            Some(r) => r,
+            None => return,
         };
 
         render_app
@@ -139,15 +142,22 @@ impl Plugin for OutlinePlugin {
             .init_resource::<jfa::JfaPipeline>()
             .init_resource::<outline::OutlinePipeline>()
             .init_resource::<SpecializedRenderPipelines<outline::OutlinePipeline>>()
-            .add_system(extract_outline_settings.in_schedule(ExtractSchedule))
-            .add_system(extract_camera_outlines.in_schedule(ExtractSchedule))
-            .add_system(extract_mask_camera_phase.in_schedule(ExtractSchedule))
-            .add_system(resources::recreate_outline_resources.in_set(RenderSet::Queue))
-            .add_system(queue_mesh_masks.in_set(RenderSet::Queue));
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_outline_settings,
+                    extract_camera_outlines,
+                    extract_mask_camera_phase,
+                ),
+            )
+            .add_systems(
+                Update,
+                (resources::recreate_outline_resources, queue_mesh_masks).in_set(RenderSet::Queue),
+            );
 
         let outline_graph = graph::outline(render_app).unwrap();
 
-        let mut root_graph = render_app.world.resource_mut::<RenderGraph>();
+        let mut root_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         let draw_3d_graph = root_graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
         let draw_3d_input = draw_3d_graph.input_node().id;
 

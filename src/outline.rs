@@ -31,7 +31,7 @@ pub struct OutlineParams {
 
 impl OutlineParams {
     pub fn new(color: Color, weight: f32) -> OutlineParams {
-        let color: Vec4 = color.as_rgba_f32().into();
+        let color = color.to_linear().to_vec4();
 
         OutlineParams { color, weight }
     }

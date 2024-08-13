@@ -3,9 +3,8 @@ use bevy::{
     pbr::{MeshPipeline, MeshPipelineKey},
     prelude::*,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::MeshVertexBufferLayoutRef,
         render_graph::{Node, RenderGraphContext, SlotInfo, SlotType},
-        render_phase::RenderPhase,
         render_resource::{
             ColorTargetState, ColorWrites, FragmentState, LoadOp, MultisampleState, Operations,
             RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
@@ -41,7 +40,7 @@ impl SpecializedMeshPipeline for MeshMaskPipeline {
     fn specialize(
         &self,
         key: Self::Key,
-        layout: &MeshVertexBufferLayout,
+        layout: &MeshVertexBufferLayoutRef,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut desc = self.mesh_pipeline.specialize(key, layout)?;
 

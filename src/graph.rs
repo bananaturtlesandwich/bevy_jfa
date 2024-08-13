@@ -58,7 +58,7 @@ impl Node for OutlineDriverNode {
 }
 
 /// Builds the render graph for applying the JFA outline.
-pub fn outline(render_app: &mut App) -> Result<RenderGraph, RenderGraphError> {
+pub fn outline(render_app: &mut SubApp) -> Result<RenderGraph, RenderGraphError> {
     let mut graph = RenderGraph::default();
 
     let input_node_id = graph.set_input(vec![SlotInfo {
@@ -72,12 +72,12 @@ pub fn outline(render_app: &mut App) -> Result<RenderGraph, RenderGraphError> {
     // 3. JFA
     // 4. Outline
 
-    let mask_node = MeshMaskNode::new(&mut render_app.world);
-    let jfa_node = JfaNode::from_world(&mut render_app.world);
+    let mask_node = MeshMaskNode::new(render_app.world_mut());
+    let jfa_node = JfaNode::from_world(render_app.world_mut());
     // TODO: BevyDefault for surface texture format is an anti-pattern;
     // the target texture format should be queried from the window when
     // Bevy exposes that functionality.
-    let outline_node = OutlineNode::new(&mut render_app.world, TextureFormat::bevy_default());
+    let outline_node = OutlineNode::new(render_app.world_mut(), TextureFormat::bevy_default());
 
     graph.add_node(outline::node::MASK_PASS, mask_node);
     graph.add_node(outline::node::JFA_INIT_PASS, JfaInitNode);
