@@ -29,16 +29,18 @@ use bevy::{
     ecs::prelude::*,
     math::FloatOrd,
     pbr::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
-    prelude::Camera3d,
+    prelude::{Camera3d, Transform},
     reflect::TypePath,
     render::{
         extract_resource::ExtractResource,
+        mesh::GpuMesh,
         prelude::*,
         render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::RenderGraph,
         render_phase::{
-            AddRenderCommand, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
-            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
+            AddRenderCommand, BinnedPhaseItem, BinnedRenderPhaseType,
+            CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+            PhaseItemExtraIndex, SetItemPipeline, ViewBinnedRenderPhases,
         },
         render_resource::*,
         view::{ExtractedView, VisibleEntities},
@@ -308,26 +310,26 @@ fn extract_mask_camera_phase(
 fn queue_mesh_masks(
     mesh_mask_draw_functions: Res<DrawFunctions<MeshMask>>,
     mesh_mask_pipeline: Res<MeshMaskPipeline>,
+    mut mesh_mask_phases: ResMut<ViewBinnedRenderPhases<MeshMask>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MeshMaskPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    render_meshes: Res<RenderAssets<Mesh>>,
-    outline_meshes: Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
-    mut views: Query<(
-        &ExtractedView,
-        &mut VisibleEntities,
-        &mut RenderPhase<MeshMask>,
-    )>,
+    render_meshes: Res<RenderAssets<GpuMesh>>,
+    outline_meshes: Query<(Entity, &Handle<Mesh>, &Transform)>,
+    mut views: Query<(Entity, &ExtractedView, &mut VisibleEntities)>,
 ) {
     let draw_outline = mesh_mask_draw_functions
         .read()
         .get_id::<DrawMeshMask>()
         .unwrap();
 
-    for (view, visible_entities, mut mesh_mask_phase) in views.iter_mut() {
-        let view_matrix = view.transform.compute_matrix();
+    for (view_entity, view, visible_entities) in views.iter_mut() {
+        let Some(mesh_mask_phase) = mesh_mask_phases.get_mut(&view_entity) else {
+            continue;
+        };
+        let view_matrix = view.world_from_view.compute_matrix();
         let inv_view_row_2 = view_matrix.inverse().row(2);
 
-        for visible_entity in visible_entities.entities.iter().copied() {
+        for visible_entity in visible_entities.get::<With<Outline>>().iter().copied() {
             let (entity, mesh_handle, mesh_uniform) = match outline_meshes.get(visible_entity) {
                 Ok(m) => m,
                 Err(_) => continue,
@@ -338,18 +340,22 @@ fn queue_mesh_masks(
                 None => continue,
             };
 
-            let key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology());
 
             let pipeline = pipelines
                 .specialize(&mut pipeline_cache, &mesh_mask_pipeline, key, &mesh.layout)
                 .unwrap();
 
-            mesh_mask_phase.add(MeshMask {
-                entity,
-                pipeline,
-                draw_function: draw_outline,
-                distance: inv_view_row_2.dot(mesh_uniform.transform.col(3)),
-            });
+            mesh_mask_phase.add(
+                MeshMaskKey {
+                    entity,
+                    pipeline,
+                    draw_function: draw_outline,
+                    distance: FloatOrd(inv_view_row_2.dot(mesh_uniform.compute_matrix().col(3))),
+                },
+                visible_entity,
+                BinnedRenderPhaseType::BatchableMesh,
+            );
         }
     }
 }
