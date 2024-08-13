@@ -2,8 +2,8 @@ use bevy::{
     prelude::*,
     render::{
         render_graph::{
-            Node, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError, RenderLabel,
-            SlotInfo, SlotType,
+            GraphInput, Node, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
+            RenderLabel, SlotInfo, SlotType,
         },
         render_resource::TextureFormat,
         renderer::RenderContext,
@@ -24,10 +24,16 @@ pub(crate) mod outline {
     }
 
     pub mod node {
-        pub const MASK_PASS: &str = "mask_pass";
-        pub const JFA_INIT_PASS: &str = "jfa_init_pass";
-        pub const JFA_PASS: &str = "jfa_pass";
-        pub const OUTLINE_PASS: &str = "outline_pass";
+        use bevy::render::render_graph::RenderLabel;
+
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, RenderLabel)]
+        pub struct MaskPass;
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, RenderLabel)]
+        pub struct JfaInitPass;
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, RenderLabel)]
+        pub struct JfaPass;
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, RenderLabel)]
+        pub struct OutlinePass;
     }
 }
 
@@ -37,7 +43,6 @@ pub struct OutlineDriverNodeLabel;
 pub struct OutlineDriverNode;
 
 impl OutlineDriverNode {
-    pub const NAME: &'static str = "outline_driver";
     pub const INPUT_VIEW: &'static str = "view_entity";
 }
 
@@ -67,7 +72,7 @@ impl Node for OutlineDriverNode {
 pub fn outline(render_app: &mut SubApp) -> Result<RenderGraph, RenderGraphError> {
     let mut graph = RenderGraph::default();
 
-    let input_node_id = graph.set_input(vec![SlotInfo {
+    graph.set_input(vec![SlotInfo {
         name: outline::input::VIEW_ENTITY.into(),
         slot_type: SlotType::Entity,
     }]);
@@ -78,63 +83,63 @@ pub fn outline(render_app: &mut SubApp) -> Result<RenderGraph, RenderGraphError>
     // 3. JFA
     // 4. Outline
 
-    let mask_node = MeshMaskNode::new(render_app.world_mut());
+    let mask_node = MeshMaskNode;
     let jfa_node = JfaNode::from_world(render_app.world_mut());
     // TODO: BevyDefault for surface texture format is an anti-pattern;
     // the target texture format should be queried from the window when
     // Bevy exposes that functionality.
     let outline_node = OutlineNode::new(render_app.world_mut(), TextureFormat::bevy_default());
 
-    graph.add_node(outline::node::MASK_PASS.into(), mask_node);
-    graph.add_node(outline::node::JFA_INIT_PASS.into(), JfaInitNode);
-    graph.add_node(outline::node::JFA_PASS.into(), jfa_node);
-    graph.add_node(outline::node::OUTLINE_PASS.into(), outline_node);
+    graph.add_node(outline::node::MaskPass, mask_node);
+    graph.add_node(outline::node::JfaInitPass, JfaInitNode);
+    graph.add_node(outline::node::JfaPass, jfa_node);
+    graph.add_node(outline::node::OutlinePass, outline_node);
 
     // Input -> Mask
     graph.add_slot_edge(
-        input_node_id.into(),
+        GraphInput,
         outline::input::VIEW_ENTITY,
-        outline::node::MASK_PASS.into(),
+        outline::node::MaskPass,
         MeshMaskNode::IN_VIEW,
     );
 
     // Mask -> JFA Init
     graph.add_slot_edge(
-        outline::node::MASK_PASS.into(),
+        outline::node::MaskPass,
         MeshMaskNode::OUT_MASK,
-        outline::node::JFA_INIT_PASS.into(),
+        outline::node::JfaInitPass,
         JfaInitNode::IN_MASK,
     );
 
     // Input -> JFA
     graph.add_slot_edge(
-        input_node_id.into(),
+        GraphInput,
         outline::input::VIEW_ENTITY,
-        outline::node::JFA_PASS.into(),
+        outline::node::JfaPass,
         JfaNode::IN_VIEW,
     );
 
     // JFA Init -> JFA
     graph.add_slot_edge(
-        outline::node::JFA_INIT_PASS.into(),
+        outline::node::JfaInitPass,
         JfaInitNode::OUT_JFA_INIT,
-        outline::node::JFA_PASS.into(),
+        outline::node::JfaPass,
         JfaNode::IN_BASE,
     );
 
     // Input -> Outline
     graph.add_slot_edge(
-        input_node_id.into(),
+        GraphInput,
         outline::input::VIEW_ENTITY,
-        outline::node::OUTLINE_PASS.into(),
+        outline::node::OutlinePass,
         OutlineNode::IN_VIEW,
     );
 
     // JFA -> Outline
     graph.add_slot_edge(
-        outline::node::JFA_PASS.into(),
+        outline::node::JfaPass,
         JfaNode::OUT_JUMP,
-        outline::node::OUTLINE_PASS.into(),
+        outline::node::OutlinePass,
         OutlineNode::IN_JFA,
     );
 
