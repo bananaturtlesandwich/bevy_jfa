@@ -19,6 +19,8 @@
 //!    tied to the camera rather than the mesh.
 //! 4. Add an [`Outline`] component to the mesh with `enabled: true`.
 
+use std::ops::Range;
+
 use bevy::{
     app::prelude::*,
     asset::{embedded_asset, Asset, AssetApp, Assets, Handle},
@@ -35,8 +37,8 @@ use bevy::{
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_graph::RenderGraph,
         render_phase::{
-            AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-            PhaseItem, SetItemPipeline,
+            AddRenderCommand, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
+            DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
         },
         render_resource::*,
         renderer::{RenderDevice, RenderQueue},
@@ -174,32 +176,74 @@ impl Plugin for OutlinePlugin {
     }
 }
 
-struct MeshMask {
-    distance: f32,
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct MeshMaskKey {
+    distance: FloatOrd,
     pipeline: CachedRenderPipelineId,
     entity: Entity,
     draw_function: DrawFunctionId,
 }
 
+struct MeshMask {
+    key: MeshMaskKey,
+    pub representative_entity: Entity,
+    pub batch_range: Range<u32>,
+    pub extra_index: PhaseItemExtraIndex,
+}
+
 impl PhaseItem for MeshMask {
-    type SortKey = FloatOrd;
-
-    fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
-    }
-
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
-    }
-
+    #[inline]
     fn entity(&self) -> Entity {
-        self.entity
+        self.representative_entity
+    }
+
+    #[inline]
+    fn draw_function(&self) -> DrawFunctionId {
+        self.key.draw_function
+    }
+
+    #[inline]
+    fn batch_range(&self) -> &Range<u32> {
+        &self.batch_range
+    }
+
+    #[inline]
+    fn batch_range_mut(&mut self) -> &mut Range<u32> {
+        &mut self.batch_range
+    }
+
+    #[inline]
+    fn extra_index(&self) -> PhaseItemExtraIndex {
+        self.extra_index
+    }
+
+    #[inline]
+    fn batch_range_and_extra_index_mut(&mut self) -> (&mut Range<u32>, &mut PhaseItemExtraIndex) {
+        (&mut self.batch_range, &mut self.extra_index)
     }
 }
 
 impl CachedRenderPipelinePhaseItem for MeshMask {
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+        self.key.pipeline
+    }
+}
+
+impl BinnedPhaseItem for MeshMask {
+    type BinKey = MeshMaskKey;
+
+    fn new(
+        key: Self::BinKey,
+        representative_entity: Entity,
+        batch_range: Range<u32>,
+        extra_index: PhaseItemExtraIndex,
+    ) -> Self {
+        Self {
+            key,
+            representative_entity,
+            batch_range,
+            extra_index,
+        }
     }
 }
 
