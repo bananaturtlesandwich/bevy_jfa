@@ -148,7 +148,7 @@ impl Plugin for OutlinePlugin {
                 (
                     extract_outline_settings,
                     extract_camera_outlines,
-                    // extract_mask_camera_phase,
+                    extract_mask_camera_phase,
                 ),
             )
             .add_systems(
@@ -297,16 +297,20 @@ fn extract_camera_outlines(
     commands.insert_or_spawn_batch(batches);
 }
 
-// fn extract_mask_camera_phase(
-//     mut commands: Commands,
-//     cameras: Extract<Query<Entity, (With<Camera3d>, With<CameraOutline>)>>,
-// ) {
-//     for entity in cameras.iter() {
-//         commands
-//             .get_or_spawn(entity)
-//             .insert(RenderPhase::<MeshMask>::default());
-//     }
-// }
+fn extract_mask_camera_phase(
+    mut commands: Commands,
+    cameras: Extract<Query<Entity, (With<Camera3d>, With<CameraOutline>)>>,
+    mut mesh_mask_phases: ResMut<ViewBinnedRenderPhases<MeshMask>>,
+    mut live_entities: Local<EntityHashSet>,
+) {
+    live_entities.clear();
+    for entity in cameras.iter() {
+        commands.get_or_spawn(entity);
+        mesh_mask_phases.insert_or_clear(entity);
+        live_entities.insert(entity);
+    }
+    mesh_mask_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
+}
 
 fn queue_mesh_masks(
     mesh_mask_draw_functions: Res<DrawFunctions<MeshMask>>,
