@@ -8,10 +8,11 @@ use bevy::{
             BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
             FragmentState, LoadOp, MultisampleState, Operations, PipelineCache,
             RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, ShaderType,
-            SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+            SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
             TextureSampleType, TextureUsages, UniformBuffer, VertexState,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
+        settings::WgpuFeatures,
         view::ViewTarget,
     },
 };
@@ -108,15 +109,13 @@ pub struct OutlinePipelineKey {
 
 impl OutlinePipelineKey {
     pub fn new(format: TextureFormat) -> Option<OutlinePipelineKey> {
-        let info = format.describe();
-
-        if info.sample_type == TextureSampleType::Depth {
+        if let Some(TextureSampleType::Depth) = format.sample_type(None, None) {
             // Can't use this format as a color attachment.
             return None;
         }
 
-        if info
-            .guaranteed_format_features
+        if format
+            .guaranteed_format_features(WgpuFeatures::empty())
             .allowed_usages
             .contains(TextureUsages::RENDER_ATTACHMENT)
         {
@@ -242,7 +241,7 @@ impl Node for OutlineNode {
 
         let (outline, target) = self.query.get_manual(world, view_ent).unwrap();
 
-        let styles = world.resource::<RenderAssets<OutlineStyle>>();
+        let styles = world.resource::<RenderAssets<GpuOutlineParams>>();
         let style = styles.get(&outline.style).unwrap();
 
         let res = world.get_resource::<OutlineResources>().unwrap();
@@ -256,15 +255,17 @@ impl Node for OutlineNode {
         let mut tracked_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("jfa_outline"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: target.main_texture(),
+                view: target.main_texture_view(),
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Load,
-                    store: true,
+                    store: StoreOp::Store,
                 },
             })],
             // TODO: support outlines being occluded by world geometry
             depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
 
         tracked_pass.set_render_pipeline(pipeline);
