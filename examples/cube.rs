@@ -13,9 +13,9 @@ fn setup(
     mut outline_styles: ResMut<Assets<OutlineStyle>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Cube { size: 1.0 }));
+    let mesh = meshes.add(Mesh::from(Cuboid::from_length(1.0)));
     let material = materials.add(StandardMaterial {
-        base_color: Color::INDIGO,
+        base_color: bevy::color::palettes::css::INDIGO.into(),
         perceptual_roughness: 0.25,
         metallic: 0.5,
         ..Default::default()
@@ -60,7 +60,7 @@ fn setup(
         .insert(CameraOutline {
             enabled: true,
             style: outline_styles.add(OutlineStyle {
-                color: Color::hex("b4a2c8").unwrap(),
+                color: Srgba::hex("b4a2c8").unwrap().into(),
                 width: 33.0,
             }),
         });
@@ -87,8 +87,8 @@ fn rotate_cube(time: Res<Time>, mut query: Query<(&mut Transform, &RotationAxis)
 }
 
 fn handle_keys(mut settings: ResMut<OutlineSettings>, mut keys: EventReader<KeyboardInput>) {
-    for ev in keys.iter() {
-        if ev.key_code == Some(KeyCode::R) && ev.state == ButtonState::Pressed {
+    for ev in keys.read() {
+        if ev.key_code == KeyCode::KeyR && ev.state == ButtonState::Pressed {
             let old = settings.half_resolution();
             settings.set_half_resolution(!old);
         }
@@ -97,11 +97,9 @@ fn handle_keys(mut settings: ResMut<OutlineSettings>, mut keys: EventReader<Keyb
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(OutlinePlugin)
+        .add_plugins((DefaultPlugins, OutlinePlugin))
         // .insert_resource(Msaa::Off)
-        .add_startup_system(setup)
-        .add_system(rotate_cube)
-        .add_system(handle_keys)
+        .add_systems(Startup, setup)
+        .add_systems(Update, (rotate_cube, handle_keys))
         .run();
 }
