@@ -26,7 +26,7 @@ use bevy::{
     asset::{embedded_asset, Asset, AssetApp, Assets, Handle},
     color::Color,
     core_pipeline::core_3d,
-    ecs::{prelude::*, system::SystemParamItem},
+    ecs::prelude::*,
     math::FloatOrd,
     pbr::{DrawMesh, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::Camera3d,
@@ -34,25 +34,20 @@ use bevy::{
     render::{
         extract_resource::ExtractResource,
         prelude::*,
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
+        render_asset::{RenderAssetPlugin, RenderAssets},
         render_graph::RenderGraph,
         render_phase::{
-            AddRenderCommand, BinnedPhaseItem, BinnedRenderPhase, CachedRenderPipelinePhaseItem,
-            DrawFunctionId, DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
+            AddRenderCommand, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
+            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
         },
         render_resource::*,
-        renderer::{RenderDevice, RenderQueue},
         view::{ExtractedView, VisibleEntities},
         Extract, RenderApp, RenderSet,
     },
 };
+use graph::OutlineDriverNodeLabel;
 
-use crate::{
-    graph::OutlineDriverNode,
-    mask::MeshMaskPipeline,
-    outline::{GpuOutlineParams, OutlineParams},
-    resources::OutlineResources,
-};
+use crate::{graph::OutlineDriverNode, mask::MeshMaskPipeline, outline::GpuOutlineParams};
 
 mod graph;
 mod jfa;
@@ -161,18 +156,24 @@ impl Plugin for OutlinePlugin {
         let outline_graph = graph::outline(render_app).unwrap();
 
         let mut root_graph = render_app.world_mut().resource_mut::<RenderGraph>();
-        let draw_3d_graph = root_graph.get_sub_graph_mut(core_3d::graph::NAME).unwrap();
-        let draw_3d_input = draw_3d_graph.input_node().id;
+        let draw_3d_graph = root_graph
+            .get_sub_graph_mut(core_3d::graph::Core3d)
+            .unwrap();
+        let draw_3d_input = draw_3d_graph.input_node().label;
 
-        draw_3d_graph.add_sub_graph(outline_graph::NAME, outline_graph);
-        let outline_driver = draw_3d_graph.add_node(OutlineDriverNode::NAME, OutlineDriverNode);
+        draw_3d_graph.add_sub_graph(outline_graph::Name, outline_graph);
+        draw_3d_graph.add_node(OutlineDriverNodeLabel, OutlineDriverNode);
         draw_3d_graph.add_slot_edge(
             draw_3d_input,
             core_3d::graph::input::VIEW_ENTITY,
-            outline_driver,
+            OutlineDriverNodeLabel,
             OutlineDriverNode::INPUT_VIEW,
         );
-        draw_3d_graph.add_node_edge(core_3d::graph::node::MAIN_PASS, outline_driver);
+        draw_3d_graph.add_node_edge(
+            // might be another pass
+            core_3d::graph::Node3d::StartMainPass,
+            OutlineDriverNodeLabel,
+        );
     }
 }
 
